@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:zxing_lib/common.dart';
@@ -11,20 +12,19 @@ class IsoMessage {
   final Uint8List byteData;
   final int width;
   final int height;
+  final int maxSize;
 
-  IsoMessage(this.sendPort, this.byteData, this.width, this.height);
+  IsoMessage(this.sendPort, this.byteData, this.width, this.height,
+      [this.maxSize = 600]);
 }
 
 Future<List<Result>?> decodeImageInIsolate(
-  Uint8List image,
-  int width,
-  int height, {
-  bool isRgb = true,
-}) async {
+    Uint8List image, int width, int height,
+    {bool isRgb = true, int maxSize = 600}) async {
   if (kIsWeb) {
     return isRgb
-        ? decodeImage(IsoMessage(null, image, width, height))
-        : decodeCamera(IsoMessage(null, image, width, height));
+        ? decodeImage(IsoMessage(null, image, width, height, maxSize))
+        : decodeCamera(IsoMessage(null, image, width, height, maxSize));
   }
   var complete = Completer<List<Result>?>();
   var port = ReceivePort();
@@ -39,7 +39,7 @@ Future<List<Result>?> decodeImageInIsolate(
     onError: (error) {},
   );
 
-  IsoMessage message = IsoMessage(port.sendPort, image, width, height);
+  IsoMessage message = IsoMessage(port.sendPort, image, width, height, maxSize);
   if (isRgb) {
     Isolate.spawn<IsoMessage>(decodeImage, message, debugName: "decodeImage");
   } else {
@@ -74,6 +74,44 @@ int getColorFromByte(List<int> byte, int index, {bool isLog = false}) {
   );
 }
 
+Uint8List scaleDown(Uint8List data, int width, int height, int newWidth,
+    int newHeight, double scale) {
+  int scaleCeil = scale.ceil();
+  Uint8List newBuffer = Uint8List(newWidth * newHeight);
+  List<int?> colors = List.filled(scaleCeil * scaleCeil, null);
+  for (int y = 0; y < newHeight; y++) {
+    for (int x = 0; x < newWidth; x++) {
+      int count = 0;
+      colors.fillRange(0, colors.length, null);
+      int startY = (y * scale).round();
+      int startX = (x * scale).round();
+      int endY = startY + scaleCeil;
+      int endX = startX + scaleCeil;
+      for (int sy = startY; sy < endY; sy++) {
+        if (sy >= height) break;
+        for (int sx = startX; sx < endX; sx++) {
+          if (sx >= width) break;
+          count++;
+          int pos = sy * width + sx;
+          if (pos < data.length) {
+            colors[(sy - startY) * scaleCeil + sx - startX] = data[pos];
+          }
+        }
+      }
+      if (count < 1) break;
+
+      int newColor = 0;
+      for (int? color in colors) {
+        if (color != null) {
+          newColor += color;
+        }
+      }
+      newBuffer[y * newWidth + x] = (newColor / count).round();
+    }
+  }
+  return newBuffer;
+}
+
 int getLuminanceSourcePixel(List<int> byte, int index) {
   if (byte.length <= index + 3) {
     return 0xff;
@@ -86,14 +124,25 @@ int getLuminanceSourcePixel(List<int> byte, int index) {
 }
 
 List<Result>? decodeImage(IsoMessage message) {
-  final pixels = Uint8List(message.width * message.height);
+  var pixels = Uint8List(message.width * message.height);
   for (int i = 0; i < pixels.length; i++) {
     pixels[i] = getLuminanceSourcePixel(message.byteData, i * 4);
   }
 
+  int width = message.width;
+  int height = message.height;
+  if (width > message.maxSize || height > message.maxSize) {
+    double scale = math.min(width / message.maxSize, height / message.maxSize);
+    int newWidth = (width / scale).ceil();
+    int newHeight = (height / scale).ceil();
+    pixels = scaleDown(pixels, width, height, newWidth, newHeight, scale);
+    width = newWidth;
+    height = newHeight;
+  }
+
   final imageSource = RGBLuminanceSource.orig(
-    message.width,
-    message.height,
+    width,
+    height,
     pixels,
   );
 

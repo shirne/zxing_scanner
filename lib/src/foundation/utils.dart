@@ -6,7 +6,7 @@ import 'package:zxing_lib/zxing.dart';
 
 import 'scan_image.dart';
 
-Future<List<Result>?> scanImage(Uint8List data) async {
+Future<List<Result>?> scanImage(Uint8List data, {int maxSize = 600}) async {
   final ui.Image image = await decodeImageFromList(data);
   final byteData = await image.toByteData();
   if (byteData == null) {
@@ -16,5 +16,6 @@ Future<List<Result>?> scanImage(Uint8List data) async {
     byteData.buffer.asUint8List(),
     image.width,
     image.height,
+    maxSize: maxSize,
   );
 }

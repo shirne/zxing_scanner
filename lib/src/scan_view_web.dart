@@ -1,12 +1,15 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:camera/camera.dart';
 import 'package:flutter/widgets.dart';
 import 'package:zxing_lib/zxing.dart';
 
 import 'controller.dart';
-import 'foundation/scan_stream.dart';
+import 'foundation/scan_image.dart';
 
-class ScanViewWeb extends StatefulWidget {
-  const ScanViewWeb({
+class ScanView extends StatefulWidget {
+  const ScanView({
     super.key,
     this.child,
     this.autoStart = true,
@@ -24,13 +27,12 @@ class ScanViewWeb extends StatefulWidget {
   final ScanController? controller;
 
   @override
-  State<ScanViewWeb> createState() => _ScanViewWebState();
+  State<ScanView> createState() => _ScanViewState();
 }
 
-class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
+class _ScanViewState extends State<ScanView> implements ScanState {
   CameraController? _controller;
   List<CameraDescription>? _cameras;
-  final _isoController = IsolateController();
   bool isDetectedCamera = false;
   bool isDetecting = false;
   bool isStop = false;
@@ -39,28 +41,20 @@ class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
   void initState() {
     super.initState();
     widget.controller?.attach(this);
-    Future.wait([
-      initCamera(),
-      _isoController.start(),
-      Future.delayed(const Duration(seconds: 1)),
-    ]).then((value) {
-      if (widget.autoStart) {
-        start();
-      }
-    });
+    initCamera();
   }
 
   Future<void> initCamera() async {
     try {
       _cameras = await availableCameras();
-      var camera = _cameras!.first;
-      for (var c in _cameras!) {
-        if (c.lensDirection == CameraLensDirection.back) {
-          camera = c;
-        }
-      }
 
       if (_cameras!.isNotEmpty) {
+        var camera = _cameras!.first;
+        for (var c in _cameras!) {
+          if (c.lensDirection == CameraLensDirection.back) {
+            camera = c;
+          }
+        }
         _controller = CameraController(
           camera,
           ResolutionPreset.low,
@@ -68,15 +62,19 @@ class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
           imageFormatGroup: ImageFormatGroup.yuv420,
         );
 
-        await _controller!.initialize();
-        if (!mounted) {
-          return;
-        }
+        _controller!.initialize().then((_) async {
+          if (!mounted) {
+            return;
+          }
 
-        await _controller!.setFlashMode(widget.flashMode);
+          await _controller!.setFlashMode(widget.flashMode);
 
-        setState(() {
-          isDetectedCamera = true;
+          setState(() {
+            isDetectedCamera = true;
+          });
+          if (widget.autoStart) {
+            Future.delayed(Duration.zero).then((value) => onCameraView());
+          }
         });
       } else {
         widget.onError?.call(Exception('Undetected camera'));
@@ -92,19 +90,15 @@ class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
     }
   }
 
-  bool _isStart = false;
   @override
-  Future<void> start() async {
-    if (_isStart || !mounted) return;
-    await _controller!.startImageStream(tryDecodeImage);
-    _isStart = true;
+  Future<void> start() {
+    isStop = false;
+    return onCameraView();
   }
 
   @override
   Future<void> stop() async {
-    if (!_isStart) return;
-    await _controller!.stopImageStream();
-    _isStart = false;
+    isStop = true;
   }
 
   @override
@@ -112,30 +106,44 @@ class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
     return _controller?.setFlashMode(mode);
   }
 
-  Future<void> tryDecodeImage(CameraImage image) async {
+  ui.Image? image;
+  Future<void> onCameraView() async {
     if (isDetecting || !mounted) return;
-    await stop();
     setState(() {
       isDetecting = true;
     });
+    XFile pic = await _controller!.takePicture();
 
-    try {
-      final results = await _isoController.setPlanes(image.planes);
+    Uint8List data = await pic.readAsBytes();
+
+    image = await decodeImageFromList(data);
+    if (!mounted) return;
+    if (image != null) {
+      setState(() {});
+
+      var results = await decodeImageInIsolate(
+        (await image!.toByteData())!.buffer.asUint8List(),
+        image!.width,
+        image!.height,
+      );
       if (!mounted) return;
       setState(() {
         isDetecting = false;
+        image = null;
       });
-      Navigator.of(context).pushNamed('/result', arguments: results);
-    } catch (_) {
-      if (!mounted) return;
+      if (results != null) {
+        widget.onResult?.call(results);
+        widget.controller?.value = results;
+      } else if (!isStop) {
+        onCameraView();
+      }
+    } else {
       setState(() {
+        image = null;
         isDetecting = false;
-      });
-
-      Future.delayed(Duration.zero).then((_) {
-        start();
       });
     }
+    _controller?.setFocusMode(FocusMode.auto);
   }
 
   @override
