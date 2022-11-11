@@ -1,4 +1,5 @@
-ZXing Scanner(Dart)
+# ZXing Scanner(Dart)
+[![pub package](https://img.shields.io/pub/v/zxing_scanner.svg)](https://pub.dartlang.org/packages/zxing_scanner)
 
 
 A Barcode scanner Widget that can be embedded inside flutter. It uses zxing-dart for all platforms.
