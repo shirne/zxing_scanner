@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.shirne.zxing_scanner.example">
    <application
-        android:label="example"
+        android:label="ZXing Scanner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

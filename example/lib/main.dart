@@ -74,14 +74,20 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: ScanView(
+        autoStart: false,
+        controller: controller,
         onResult: showResult,
         child: Stack(
           children: [
             Positioned(
+              right: 0,
+              top: 0,
               child: Padding(
                 padding: const EdgeInsets.only(right: 16, top: 16),
                 child: GestureDetector(
                   onTap: () async {
+                    Feedback.forTap(context);
+                    controller.stop();
                     final XFile? image = await ImagePicker()
                         .pickImage(source: ImageSource.gallery);
                     if (image != null) {
@@ -91,17 +97,26 @@ class _MyHomePageState extends State<MyHomePage> {
                     }
                   },
                   behavior: HitTestBehavior.opaque,
-                  child: const Icon(Icons.image),
+                  child: const Icon(
+                    Icons.image,
+                    color: Colors.blue,
+                  ),
                 ),
               ),
             ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: IconButton(
+                  style: IconButton.styleFrom(backgroundColor: Colors.white),
+                  onPressed: _startScan,
+                  icon: const Icon(Icons.camera),
+                ),
+              ),
+            )
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _startScan,
-        tooltip: 'Start scan',
-        child: const Icon(Icons.camera),
       ),
     );
   }
