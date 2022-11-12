@@ -124,6 +124,7 @@ class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
     setState(() {
       isDetecting = true;
     });
+
     final pic = await _controller!.takePicture();
 
     final data = await pic.readAsBytes();

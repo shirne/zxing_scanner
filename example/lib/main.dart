@@ -111,7 +111,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: IconButton(
                   style: IconButton.styleFrom(backgroundColor: Colors.white),
                   onPressed: _startScan,
-                  icon: const Icon(Icons.camera),
+                  icon: const Icon(
+                    Icons.camera,
+                    color: Colors.blue,
+                  ),
                 ),
               ),
             )

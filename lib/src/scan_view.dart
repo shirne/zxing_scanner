@@ -109,15 +109,15 @@ class _ScanViewState extends State<ScanView> implements ScanState {
   @override
   Future<void> start() async {
     if (_isStart || !mounted) return;
-    await _controller!.startImageStream(tryDecodeImage);
     _isStart = true;
+    await _controller!.startImageStream(tryDecodeImage);
   }
 
   @override
   Future<void> stop() async {
     if (!_isStart) return;
-    await _controller!.stopImageStream();
     _isStart = false;
+    await _controller!.stopImageStream();
   }
 
   @override
@@ -127,10 +127,11 @@ class _ScanViewState extends State<ScanView> implements ScanState {
 
   Future<void> tryDecodeImage(CameraImage image) async {
     if (isDetecting || !mounted) return;
-    await stop();
     setState(() {
       isDetecting = true;
     });
+
+    await stop();
 
     try {
       final results = await _isoController.setPlanes(image.planes);
@@ -138,7 +139,9 @@ class _ScanViewState extends State<ScanView> implements ScanState {
       setState(() {
         isDetecting = false;
       });
-      Navigator.of(context).pushNamed('/result', arguments: results);
+
+      widget.onResult?.call(results);
+      widget.controller?.value = results;
     } catch (_) {
       if (!mounted) return;
       setState(() {
