@@ -6,6 +6,7 @@ import 'package:zxing_lib/zxing.dart';
 
 import 'scan_image.dart';
 
+/// scan code from an image file data(not pixel)
 Future<List<Result>?> scanImage(Uint8List data, {int maxSize = 600}) async {
   final ui.Image image = await decodeImageFromList(data);
   final byteData = await image.toByteData();

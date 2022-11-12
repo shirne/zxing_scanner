@@ -5,8 +5,10 @@ import 'package:zxing_lib/zxing.dart';
 import 'controller.dart';
 import 'foundation/scan_stream.dart';
 
-class ScanViewWeb extends StatefulWidget {
-  const ScanViewWeb({
+/// create a scan widget to capture and show camera
+class ScanView extends StatefulWidget {
+  /// constructor
+  const ScanView({
     super.key,
     this.child,
     this.autoStart = true,
@@ -16,18 +18,29 @@ class ScanViewWeb extends StatefulWidget {
     this.controller,
   });
 
+  /// child element to cover camera view
   final Widget? child;
+
+  /// auto start capture and decode
   final bool autoStart;
+
+  /// flash Mode
   final FlashMode flashMode;
+
+  /// error callback
   final Function(dynamic)? onError;
+
+  /// result callback
   final Function(List<Result>)? onResult;
+
+  /// capture controller
   final ScanController? controller;
 
   @override
-  State<ScanViewWeb> createState() => _ScanViewWebState();
+  State<ScanView> createState() => _ScanViewState();
 }
 
-class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
+class _ScanViewState extends State<ScanView> implements ScanState {
   CameraController? _controller;
   List<CameraDescription>? _cameras;
   final _isoController = IsolateController();

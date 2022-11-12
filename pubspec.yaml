@@ -1,6 +1,6 @@
 name: zxing_scanner
 description: A Barcode scanner Widget that can be embedded inside flutter. It uses zxing-dart for all platforms.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/shirne/zxing_scanner
 
 environment:

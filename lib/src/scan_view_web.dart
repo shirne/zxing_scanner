@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
@@ -8,8 +7,10 @@ import 'package:zxing_lib/zxing.dart';
 import 'controller.dart';
 import 'foundation/scan_image.dart';
 
-class ScanView extends StatefulWidget {
-  const ScanView({
+/// scan view for platforms that not suppert camera stream capture
+class ScanViewWeb extends StatefulWidget {
+  /// constructor
+  const ScanViewWeb({
     super.key,
     this.child,
     this.autoStart = true,
@@ -19,18 +20,29 @@ class ScanView extends StatefulWidget {
     this.controller,
   });
 
+  /// child element to cover camera view
   final Widget? child;
+
+  /// auto start capture and decode
   final bool autoStart;
+
+  /// flash Mode
   final FlashMode flashMode;
+
+  /// error callback
   final Function(dynamic)? onError;
+
+  /// result callback
   final Function(List<Result>)? onResult;
+
+  /// capture controller
   final ScanController? controller;
 
   @override
-  State<ScanView> createState() => _ScanViewState();
+  State<ScanViewWeb> createState() => _ScanViewWebState();
 }
 
-class _ScanViewState extends State<ScanView> implements ScanState {
+class _ScanViewWebState extends State<ScanViewWeb> implements ScanState {
   CameraController? _controller;
   List<CameraDescription>? _cameras;
   bool isDetectedCamera = false;
@@ -112,16 +124,16 @@ class _ScanViewState extends State<ScanView> implements ScanState {
     setState(() {
       isDetecting = true;
     });
-    XFile pic = await _controller!.takePicture();
+    final pic = await _controller!.takePicture();
 
-    Uint8List data = await pic.readAsBytes();
+    final data = await pic.readAsBytes();
 
     image = await decodeImageFromList(data);
     if (!mounted) return;
     if (image != null) {
       setState(() {});
 
-      var results = await decodeImageInIsolate(
+      final results = await decodeImageInIsolate(
         (await image!.toByteData())!.buffer.asUint8List(),
         image!.width,
         image!.height,

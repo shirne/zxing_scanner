@@ -1,3 +1,7 @@
+## 0.1.2
+
+* doc & readme
+
 ## 0.1.1
 
 * auto compress image

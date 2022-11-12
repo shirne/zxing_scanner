@@ -7,129 +7,139 @@ import 'package:zxing_lib/common.dart';
 import 'package:zxing_lib/multi.dart';
 import 'package:zxing_lib/zxing.dart';
 
-enum IsoCommand {
+enum _IsoCommand {
   decode,
   success,
   fail,
 }
 
-class IsoMessage {
-  IsoMessage(this.cmd, [this.data])
+class _IsoMessage {
+  _IsoMessage(this.cmd, [this.data])
       : result = null,
-        assert(cmd != IsoCommand.decode || data != null);
+        assert(cmd != _IsoCommand.decode || data != null);
 
-  IsoMessage.result(this.result)
-      : cmd = IsoCommand.success,
+  _IsoMessage.result(this.result)
+      : cmd = _IsoCommand.success,
         data = null,
         assert(result != null);
 
-  IsoMessage.fail()
-      : cmd = IsoCommand.success,
+  _IsoMessage.fail()
+      : cmd = _IsoCommand.success,
         data = null,
         result = null;
 
   final List<Plane>? data;
   final List<Result>? result;
-  final IsoCommand cmd;
+  final _IsoCommand cmd;
 }
 
+/// controller an isolate to executer decode command
 class IsolateController extends ChangeNotifier {
-  Isolate? newIsolate;
-  late ReceivePort receivePort;
-  late SendPort newIceSP;
-  Capability? capability;
+  Isolate? _newIsolate;
+  late ReceivePort _receivePort;
+  late SendPort _newIceSP;
+  Capability? _capability;
 
   List<Plane> _currentPlanes = <Plane>[];
   final List<List<Result>?> _currentResults = [];
   bool _created = false;
   bool _paused = false;
 
+  /// get current data of yuv planes
   List<Plane> get currentMultiplier => _currentPlanes;
 
+  /// isolate status: is paused
   bool get paused => _paused;
 
+  /// isolate status: is created
   bool get created => _created;
 
+  /// get last result
   List<List<Result>?> get currentResults => _currentResults;
 
-  Future<void> createIsolate() async {
-    receivePort = ReceivePort();
-    newIsolate = await Isolate.spawn(decodeFromCamera, receivePort.sendPort);
+  Future<void> _createIsolate() async {
+    _receivePort = ReceivePort();
+    _newIsolate = await Isolate.spawn(_decodeFromCamera, _receivePort.sendPort);
   }
 
-  void listen() {
-    receivePort.listen((dynamic message) {
+  void _listen() {
+    _receivePort.listen((dynamic message) {
       if (message is SendPort) {
-        newIceSP = message;
+        _newIceSP = message;
         if (_currentPlanes.isNotEmpty) {
-          newIceSP.send(_currentPlanes);
+          _newIceSP.send(_currentPlanes);
         }
-      } else if (message is IsoMessage) {
-        if (message.cmd == IsoCommand.success ||
-            message.cmd == IsoCommand.fail) {
-          setCurrentResults(message.result);
+      } else if (message is _IsoMessage) {
+        if (message.cmd == _IsoCommand.success ||
+            message.cmd == _IsoCommand.fail) {
+          _setCurrentResults(message.result);
         }
       }
     });
   }
 
+  /// start isolate
   Future<void> start() async {
     if (_created == false && _paused == false) {
-      await createIsolate();
-      listen();
+      await _createIsolate();
+      _listen();
       _created = true;
       notifyListeners();
     }
   }
 
+  /// dispose isolate
   void terminate() {
-    newIsolate?.kill();
+    _newIsolate?.kill();
     _created = false;
     _currentResults.clear();
     notifyListeners();
   }
 
+  /// pause/resume isolate
   void pausedSwitch() {
-    if (_paused && capability != null) {
-      newIsolate?.resume(capability!);
+    if (_paused && _capability != null) {
+      _newIsolate?.resume(_capability!);
     } else {
-      capability = newIsolate?.pause();
+      _capability = _newIsolate?.pause();
     }
 
     _paused = !_paused;
     notifyListeners();
   }
 
-  Completer<List<Result>>? completer;
+  Completer<List<Result>>? _completer;
+
+  /// set a yuv planes to start decode
   Future<List<Result>> setPlanes(List<Plane> planes) {
     _currentPlanes = planes;
-    completer = Completer<List<Result>>();
-    newIceSP.send(IsoMessage(IsoCommand.decode, _currentPlanes));
+    _completer = Completer<List<Result>>();
+    _newIceSP.send(_IsoMessage(_IsoCommand.decode, _currentPlanes));
     notifyListeners();
-    return completer!.future;
+    return _completer!.future;
   }
 
-  void setCurrentResults(List<Result>? result) {
+  void _setCurrentResults(List<Result>? result) {
     _currentResults.insert(0, result);
     notifyListeners();
-    if (!(completer?.isCompleted ?? true)) {
+    if (!(_completer?.isCompleted ?? true)) {
       if (result != null) {
-        completer?.complete(result);
+        _completer?.complete(result);
       } else {
-        completer?.completeError('Decode Failed');
+        _completer?.completeError('Decode Failed');
       }
     }
   }
 
   @override
   void dispose() {
-    newIsolate?.kill(priority: Isolate.immediate);
-    newIsolate = null;
+    _newIsolate?.kill(priority: Isolate.immediate);
+    _newIsolate = null;
     super.dispose();
   }
 }
 
-Future<void> decodeFromCamera(SendPort callerSP) async {
+Future<void> _decodeFromCamera(SendPort callerSP) async {
   final newIceRP = ReceivePort();
   callerSP.send(newIceRP.sendPort);
 
@@ -139,8 +149,8 @@ Future<void> decodeFromCamera(SendPort callerSP) async {
 
   Completer<bool> goNext = Completer();
   newIceRP.listen((dynamic message) {
-    if (message is IsoMessage) {
-      if (message.cmd == IsoCommand.decode) {
+    if (message is _IsoMessage) {
+      if (message.cmd == _IsoCommand.decode) {
         if (goNext.isCompleted) {
           return;
         }
@@ -182,9 +192,9 @@ Future<void> decodeFromCamera(SendPort callerSP) async {
           DecodeHintType.TRY_HARDER: false,
           DecodeHintType.ALSO_INVERTED: false,
         });
-        callerSP.send(IsoMessage.result(results));
+        callerSP.send(_IsoMessage.result(results));
       } on NotFoundException catch (_) {
-        callerSP.send(IsoMessage.fail());
+        callerSP.send(_IsoMessage.fail());
       }
     }
 

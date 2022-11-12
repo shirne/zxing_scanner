@@ -7,27 +7,37 @@ import 'package:zxing_lib/common.dart';
 import 'package:zxing_lib/multi.dart';
 import 'package:zxing_lib/zxing.dart';
 
-class IsoMessage {
+class _IsoMessage {
   final SendPort? sendPort;
   final Uint8List byteData;
   final int width;
   final int height;
   final int maxSize;
 
-  IsoMessage(this.sendPort, this.byteData, this.width, this.height,
-      [this.maxSize = 600]);
+  _IsoMessage(
+    this.sendPort,
+    this.byteData,
+    this.width,
+    this.height, [
+    this.maxSize = 600,
+  ]);
 }
 
+/// decode image in an isolate(except web).
 Future<List<Result>?> decodeImageInIsolate(
-    Uint8List image, int width, int height,
-    {bool isRgb = true, int maxSize = 600}) async {
+  Uint8List image,
+  int width,
+  int height, {
+  bool isRgb = true,
+  int maxSize = 600,
+}) async {
   if (kIsWeb) {
     return isRgb
-        ? decodeImage(IsoMessage(null, image, width, height, maxSize))
-        : decodeCamera(IsoMessage(null, image, width, height, maxSize));
+        ? _decodeImage(_IsoMessage(null, image, width, height, maxSize))
+        : _decodeCamera(_IsoMessage(null, image, width, height, maxSize));
   }
-  var complete = Completer<List<Result>?>();
-  var port = ReceivePort();
+  final complete = Completer<List<Result>?>();
+  final port = ReceivePort();
   port.listen(
     (message) {
       if (!complete.isCompleted) {
@@ -39,60 +49,45 @@ Future<List<Result>?> decodeImageInIsolate(
     onError: (error) {},
   );
 
-  IsoMessage message = IsoMessage(port.sendPort, image, width, height, maxSize);
+  final message = _IsoMessage(port.sendPort, image, width, height, maxSize);
   if (isRgb) {
-    Isolate.spawn<IsoMessage>(decodeImage, message, debugName: "decodeImage");
+    Isolate.spawn<_IsoMessage>(_decodeImage, message, debugName: 'decodeImage');
   } else {
-    Isolate.spawn<IsoMessage>(decodeCamera, message, debugName: "decodeCamera");
+    Isolate.spawn<_IsoMessage>(
+      _decodeCamera,
+      message,
+      debugName: 'decodeCamera',
+    );
   }
 
   return complete.future;
 }
 
-Uint8List color2Uint(int color) {
-  return Uint8List.fromList([
-    color >> 16 & 0xff,
-    color >> 8 & 0xff,
-    color & 0xff,
-    color >> 16 & 0xff
-  ]);
-}
-
-int getColor(int r, int g, int b, [int a = 255]) {
-  return (r << 16) + (g << 8) + b + (a << 24);
-}
-
-int getColorFromByte(List<int> byte, int index, {bool isLog = false}) {
-  if (byte.length <= index + 3) {
-    return 0xffffffff;
-  }
-  return getColor(
-    byte[index],
-    byte[index + 1],
-    byte[index + 2],
-    byte[index + 3],
-  );
-}
-
-Uint8List scaleDown(Uint8List data, int width, int height, int newWidth,
-    int newHeight, double scale) {
-  int scaleCeil = scale.ceil();
-  Uint8List newBuffer = Uint8List(newWidth * newHeight);
-  List<int?> colors = List.filled(scaleCeil * scaleCeil, null);
+Uint8List _scaleDown(
+  Uint8List data,
+  int width,
+  int height,
+  int newWidth,
+  int newHeight,
+  double scale,
+) {
+  final scaleCeil = scale.ceil();
+  final newBuffer = Uint8List(newWidth * newHeight);
+  final colors = List<int?>.filled(scaleCeil * scaleCeil, null);
   for (int y = 0; y < newHeight; y++) {
     for (int x = 0; x < newWidth; x++) {
       int count = 0;
       colors.fillRange(0, colors.length, null);
-      int startY = (y * scale).round();
-      int startX = (x * scale).round();
-      int endY = startY + scaleCeil;
-      int endX = startX + scaleCeil;
+      final startY = (y * scale).round();
+      final startX = (x * scale).round();
+      final endY = startY + scaleCeil;
+      final endX = startX + scaleCeil;
       for (int sy = startY; sy < endY; sy++) {
         if (sy >= height) break;
         for (int sx = startX; sx < endX; sx++) {
           if (sx >= width) break;
           count++;
-          int pos = sy * width + sx;
+          final pos = sy * width + sx;
           if (pos < data.length) {
             colors[(sy - startY) * scaleCeil + sx - startX] = data[pos];
           }
@@ -112,7 +107,7 @@ Uint8List scaleDown(Uint8List data, int width, int height, int newWidth,
   return newBuffer;
 }
 
-int getLuminanceSourcePixel(List<int> byte, int index) {
+int _getLuminanceSourcePixel(List<int> byte, int index) {
   if (byte.length <= index + 3) {
     return 0xff;
   }
@@ -123,19 +118,19 @@ int getLuminanceSourcePixel(List<int> byte, int index) {
   return ((r + g2 + b) ~/ 4);
 }
 
-List<Result>? decodeImage(IsoMessage message) {
+List<Result>? _decodeImage(_IsoMessage message) {
   var pixels = Uint8List(message.width * message.height);
   for (int i = 0; i < pixels.length; i++) {
-    pixels[i] = getLuminanceSourcePixel(message.byteData, i * 4);
+    pixels[i] = _getLuminanceSourcePixel(message.byteData, i * 4);
   }
 
   int width = message.width;
   int height = message.height;
   if (width > message.maxSize || height > message.maxSize) {
-    double scale = math.min(width / message.maxSize, height / message.maxSize);
-    int newWidth = (width / scale).ceil();
-    int newHeight = (height / scale).ceil();
-    pixels = scaleDown(pixels, width, height, newWidth, newHeight, scale);
+    final scale = math.min(width / message.maxSize, height / message.maxSize);
+    final newWidth = (width / scale).ceil();
+    final newHeight = (height / scale).ceil();
+    pixels = _scaleDown(pixels, width, height, newWidth, newHeight, scale);
     width = newWidth;
     height = newHeight;
   }
@@ -150,7 +145,7 @@ List<Result>? decodeImage(IsoMessage message) {
 
   final reader = GenericMultipleBarcodeReader(MultiFormatReader());
   try {
-    var results = reader.decodeMultiple(bitmap, {
+    final results = reader.decodeMultiple(bitmap, {
       DecodeHintType.TRY_HARDER: true,
       DecodeHintType.ALSO_INVERTED: true,
     });
@@ -163,7 +158,7 @@ List<Result>? decodeImage(IsoMessage message) {
   return null;
 }
 
-List<Result>? decodeCamera(IsoMessage message) {
+List<Result>? _decodeCamera(_IsoMessage message) {
   final imageSource = PlanarYUVLuminanceSource(
     message.byteData.buffer.asUint8List(),
     message.width,
