@@ -16,7 +16,7 @@ A Barcode scanner Widget that can be embedded inside flutter. It uses zxing-dart
 - ✅ Scan from Image file
 
 * Scan from camera need camera support for platform. and camera plugin now supported android,ios, and web.
-and on some mobile devices browsers there's error while fetch cameras. see [camera fix for web](git@github.com:shirne/plugins.git)
+and on some mobile devices browsers there's error while fetch cameras. see [camera fix for web](https://github.com/shirne/plugins/tree/fix-web-camera-fetch-error)
 
 ## Getting started
 
