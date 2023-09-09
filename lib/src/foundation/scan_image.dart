@@ -175,7 +175,16 @@ List<Result>? _decodeCamera(_IsoMessage message) {
     message.sendPort?.send(results);
     return results;
   } on NotFoundException catch (_) {
-    message.sendPort?.send(null);
+    try {
+      final results = reader.decodeMultiple(
+        bitmap,
+        const DecodeHint(tryHarder: true, alsoInverted: true),
+      );
+      message.sendPort?.send(results);
+      return results;
+    } on NotFoundException catch (_) {
+      message.sendPort?.send(null);
+    }
   }
   return null;
 }
