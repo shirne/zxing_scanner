@@ -145,10 +145,10 @@ List<Result>? _decodeImage(_IsoMessage message) {
 
   final reader = GenericMultipleBarcodeReader(MultiFormatReader());
   try {
-    final results = reader.decodeMultiple(bitmap, {
-      DecodeHintType.TRY_HARDER: true,
-      DecodeHintType.ALSO_INVERTED: true,
-    });
+    final results = reader.decodeMultiple(
+      bitmap,
+      const DecodeHint(tryHarder: true, alsoInverted: true),
+    );
 
     message.sendPort?.send(results);
     return results;
@@ -168,10 +168,10 @@ List<Result>? _decodeCamera(_IsoMessage message) {
   final bitmap = BinaryBitmap(HybridBinarizer(imageSource));
   final reader = GenericMultipleBarcodeReader(MultiFormatReader());
   try {
-    final results = reader.decodeMultiple(bitmap, {
-      DecodeHintType.TRY_HARDER: false,
-      DecodeHintType.ALSO_INVERTED: false,
-    });
+    final results = reader.decodeMultiple(
+      bitmap,
+      const DecodeHint(tryHarder: false, alsoInverted: false),
+    );
     message.sendPort?.send(results);
     return results;
   } on NotFoundException catch (_) {

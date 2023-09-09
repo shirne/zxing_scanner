@@ -188,13 +188,21 @@ Future<void> _decodeFromCamera(SendPort callerSP) async {
 
       final bitmap = BinaryBitmap(HybridBinarizer(imageSource));
       try {
-        final results = reader.decodeMultiple(bitmap, {
-          DecodeHintType.TRY_HARDER: false,
-          DecodeHintType.ALSO_INVERTED: false,
-        });
+        final results = reader.decodeMultiple(
+          bitmap,
+          const DecodeHint(tryHarder: false, alsoInverted: false),
+        );
         callerSP.send(_IsoMessage.result(results));
       } on NotFoundException catch (_) {
-        callerSP.send(_IsoMessage.fail());
+        try {
+          final results = reader.decodeMultiple(
+            bitmap,
+            const DecodeHint(tryHarder: true, alsoInverted: true),
+          );
+          callerSP.send(_IsoMessage.result(results));
+        } on NotFoundException catch (_) {
+          callerSP.send(_IsoMessage.fail());
+        }
       }
     }
 

@@ -1,3 +1,6 @@
+## 1.0.0
+* upgrade zxing to 1.0.0
+
 ## 0.1.2
 
 * doc & readme
