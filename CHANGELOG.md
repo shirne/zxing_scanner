@@ -1,3 +1,6 @@
+## 2.0.0
+* upgrade dependencies
+
 ## 1.0.0
 * upgrade zxing to 1.0.0
 
